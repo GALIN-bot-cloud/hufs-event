@@ -72,7 +72,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center px-4 py-12 relative overflow-hidden sm:justify-center">
+    <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
       <CoffeeBean className="absolute top-8 left-10 w-8 h-8 text-[#1E3A8A]/10 floating-icon-slow sm:left-[calc(50%-380px)] sm:top-24" />
 <CoffeeBean className="absolute top-6 right-16 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium sm:right-[calc(50%-380px)] sm:top-16" />
 <CoffeeBean className="absolute bottom-56 right-6 w-9 h-9 text-[#1E3A8A]/10 floating-icon-slow sm:right-[calc(50%-400px)] sm:top-1/2" />
