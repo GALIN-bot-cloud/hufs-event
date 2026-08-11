@@ -72,12 +72,12 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center px-4 py-12 relative overflow-hidden">
-      <CoffeeBean className="absolute top-8 left-10 w-8 h-8 text-[#1E3A8A]/10 floating-icon-slow" />
-<CoffeeBean className="absolute top-6 right-16 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium" />
-<CoffeeBean className="absolute bottom-56 right-6 w-9 h-9 text-[#1E3A8A]/10 floating-icon-slow" />
-<CoffeeBean className="absolute bottom-14 left-16 w-7 h-7 text-[#1E3A8A]/10 floating-icon-slow" />
-<CoffeeBean className="absolute bottom-4 right-24 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium" />
+    <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center px-4 py-12 relative overflow-hidden sm:justify-center">
+      <CoffeeBean className="absolute top-8 left-10 w-8 h-8 text-[#1E3A8A]/10 floating-icon-slow sm:left-[calc(50%-380px)] sm:top-24" />
+<CoffeeBean className="absolute top-6 right-16 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium sm:right-[calc(50%-380px)] sm:top-16" />
+<CoffeeBean className="absolute bottom-56 right-6 w-9 h-9 text-[#1E3A8A]/10 floating-icon-slow sm:right-[calc(50%-400px)] sm:top-1/2" />
+<CoffeeBean className="absolute bottom-14 left-16 w-7 h-7 text-[#1E3A8A]/10 floating-icon-slow sm:left-[calc(50%-400px)] sm:bottom-32" />
+<CoffeeBean className="absolute bottom-4 right-24 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium sm:right-[calc(50%-360px)] sm:bottom-16" />
       <div className="w-full max-w-xl">
         <div className="flex flex-col items-center text-center gap-4 mb-6">
   <Image src="/mebookie.png" alt="프로모션 캐릭터" width={400} height={400} className="shrink-0 object-contain w-40 sm:w-[200px]" style={{ height: "auto" }} />
