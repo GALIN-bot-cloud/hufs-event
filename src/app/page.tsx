@@ -79,14 +79,14 @@ export default function Home() {
 <CoffeeBean className="absolute bottom-14 left-16 w-7 h-7 text-[#1E3A8A]/10 floating-icon-slow" />
 <CoffeeBean className="absolute bottom-4 right-24 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium" />
       <div className="w-full max-w-xl">
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold text-[#1E3A8A] whitespace-normal sm:whitespace-nowrap" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 카페 프로모션</h1>
-            <p className="text-base sm:text-lg font-semibold text-gray-700 mt-1 whitespace-nowrap">아메리카노 무료 증정 쿠폰번호 조회 페이지</p>
-            <p className="text-sm text-gray-500 mt-4 leading-relaxed">한국외대 카페 프로모션 대상자의 쿠폰을 확인하고<br />무료 증정 여부를 확인해 주세요.</p>
-          </div>
-          <Image src="/mebookie.png" alt="프로모션 캐릭터" width={125} height={125} className="shrink-0 object-contain w-16 sm:w-[125px]" style={{ height: "auto" }} />
-        </div>
+        <div className="flex flex-col items-center text-center gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between sm:text-left sm:mb-2">
+  <Image src="/mebookie.png" alt="프로모션 캐릭터" width={125} height={125} className="shrink-0 object-contain w-24 sm:w-[125px] order-first sm:order-last" style={{ height: "auto" }} />
+  <div className="min-w-0">
+    <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A]" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 카페 프로모션</h1>
+    <p className="text-base sm:text-lg font-semibold text-gray-700 mt-1">아메리카노 무료 증정 쿠폰번호 조회 페이지</p>
+    <p className="text-sm text-gray-500 mt-3 leading-relaxed">한국외대 카페 프로모션 대상자의 쿠폰을 확인하고<br />무료 증정 여부를 확인해 주세요.</p>
+  </div>
+</div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
           <label className="block text-sm font-medium text-gray-600 mb-2">쿠폰번호</label>
