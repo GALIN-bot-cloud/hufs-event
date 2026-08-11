@@ -81,11 +81,11 @@ export default function Home() {
       <div className="w-full max-w-xl">
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A] whitespace-nowrap" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 카페 프로모션</h1>
+            <h1 className="text-lg sm:text-2xl font-bold text-[#1E3A8A] whitespace-normal sm:whitespace-nowrap" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 카페 프로모션</h1>
             <p className="text-base sm:text-lg font-semibold text-gray-700 mt-1 whitespace-nowrap">아메리카노 무료 증정 쿠폰번호 조회 페이지</p>
             <p className="text-sm text-gray-500 mt-4 leading-relaxed">한국외대 카페 프로모션 대상자의 쿠폰을 확인하고<br />무료 증정 여부를 확인해 주세요.</p>
           </div>
-          <Image src="/mebookie.png" alt="프로모션 캐릭터" width={125} height={125} className="shrink-0 object-contain" style={{ height: "auto", width: "125px" }} />
+          <Image src="/mebookie.png" alt="프로모션 캐릭터" width={125} height={125} className="shrink-0 object-contain w-16 sm:w-[125px]" style={{ height: "auto" }} />
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
