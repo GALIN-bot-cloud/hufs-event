@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Download, ArrowLeft, ListChecks } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Download, ArrowLeft, ListChecks, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type LogItem = {
@@ -26,26 +26,15 @@ export default function AdminPage() {
   const [globalRevenue, setGlobalRevenue] = useState<number | null>(null);
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  const fetchLogs = async (attempt = 1) => {
-  if (attempt === 1) {
-    setLoading(true);
-    setProgress(0);
-  }
+  const lastFetchRef = useRef<string | null>(null);
 
-  const progressTimer = setInterval(() => {
-    setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
-  }, 400);
-
-  try {
-    const res = await fetch(`${GAS_URL}?type=logs`);
-    if (!res.ok) throw new Error("응답 실패");
-    const data = await res.json();
-    setLogs(data.logs ?? []);
+  const applyStats = (data: any) => {
     setTodayCount(data.todayCount ?? 0);
     setTotalCount(data.totalCount ?? 0);
     setIssuedCount(data.issuedCount ?? 0);
@@ -54,22 +43,72 @@ export default function AdminPage() {
     setSeoulRevenue(data.seoulRevenue ?? 0);
     setGlobalRevenue(data.globalRevenue ?? 0);
     setTotalRevenue(data.totalRevenue ?? 0);
-    setProgress(100);
-    clearInterval(progressTimer);
-    setTimeout(() => setLoading(false), 300);
-  } catch {
-    clearInterval(progressTimer);
-    if (attempt < 3) {
-      setTimeout(() => fetchLogs(attempt + 1), 800);
-    } else {
-      setLogs([]);
-      setProgress(100);
-      setLoading(false);
+  };
+
+  // 최초 로딩: 전체 데이터를 가져옴
+  const fetchInitial = async (attempt = 1) => {
+    if (attempt === 1) {
+      setLoading(true);
+      setProgress(0);
     }
-  }
-};
+
+    const progressTimer = setInterval(() => {
+      setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
+    }, 400);
+
+    try {
+      const res = await fetch(`${GAS_URL}?type=logs`);
+      if (!res.ok) throw new Error("응답 실패");
+      const data = await res.json();
+      setLogs(data.logs ?? []);
+      applyStats(data);
+      lastFetchRef.current = new Date().toISOString();
+      setProgress(100);
+      clearInterval(progressTimer);
+      setTimeout(() => setLoading(false), 300);
+    } catch {
+      clearInterval(progressTimer);
+      if (attempt < 3) {
+        setTimeout(() => fetchInitial(attempt + 1), 800);
+      } else {
+        setLogs([]);
+        setProgress(100);
+        setLoading(false);
+      }
+    }
+  };
+
+  // 증분 새로고침: 마지막 조회 이후 새로 생긴 기록만 가져와서 이어붙임
+  const fetchIncremental = async () => {
+    if (!lastFetchRef.current) return;
+    setRefreshing(true);
+    try {
+      const since = encodeURIComponent(lastFetchRef.current);
+      const res = await fetch(`${GAS_URL}?type=logs&since=${since}`);
+      if (!res.ok) throw new Error("응답 실패");
+      const data = await res.json();
+
+      applyStats(data);
+
+      const newLogs: LogItem[] = data.logs ?? [];
+      if (newLogs.length > 0) {
+        setLogs((prev) => {
+          const existingCodes = new Set(prev.map((l) => l.code));
+          const uniqueNew = newLogs.filter((l) => !existingCodes.has(l.code));
+          return [...uniqueNew, ...prev];
+        });
+      }
+
+      lastFetchRef.current = new Date().toISOString();
+    } catch {
+      // 새로고침 실패 시 조용히 무시 (기존 데이터는 유지)
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    fetchLogs();
+    fetchInitial();
   }, []);
 
   const filteredLogs = logs.filter((log) => {
@@ -118,14 +157,24 @@ export default function AdminPage() {
             <ArrowLeft className="w-4 h-4" />
             돌아가기
           </a>
-          <button
-            onClick={handleDownloadExcel}
-            disabled={filteredLogs.length === 0}
-            className="flex items-center gap-2 bg-[#1E3A8A] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#1e3a8a]/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" />
-            엑셀 다운로드
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchIncremental}
+              disabled={loading || refreshing}
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#1E3A8A] px-3 py-2 disabled:opacity-40"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+              새로고침
+            </button>
+            <button
+              onClick={handleDownloadExcel}
+              disabled={filteredLogs.length === 0}
+              className="flex items-center gap-2 bg-[#1E3A8A] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#1e3a8a]/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              엑셀 다운로드
+            </button>
+          </div>
         </div>
 
         <h1 className="text-xl font-bold text-[#1E3A8A] mb-4">관리자 페이지</h1>
@@ -210,18 +259,18 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-  <div className="py-6 px-2">
-    <p className="text-sm text-gray-400 text-center mb-3">
-      데이터를 불러오는 중... {Math.round(progress)}%
-    </p>
-    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-      <div
-        className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  </div>
-) : filteredLogs.length === 0 ? (
+            <div className="py-6 px-2">
+              <p className="text-sm text-gray-400 text-center mb-3">
+                데이터를 불러오는 중... {Math.round(progress)}%
+              </p>
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          ) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
             <div className="divide-y divide-gray-100">
