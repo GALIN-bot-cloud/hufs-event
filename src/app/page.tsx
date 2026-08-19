@@ -6,11 +6,14 @@ import CoffeeBean from "./components/CoffeeBean";
 import clsx from "clsx";
 import Image from "next/image";
 
+type Campus = "서울캠퍼스" | "글로벌캠퍼스";
+
 type ResultState =
   | { type: "idle" }
   | { type: "valid"; code: string }
   | { type: "used"; code: string }
   | { type: "invalid"; code: string }
+  | { type: "closed"; code: string }
   | { type: "error"; code: string };
 
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
@@ -34,12 +37,13 @@ function getDeviceInfo() {
 }
 
 export default function Home() {
+  const [campus, setCampus] = useState<Campus | null>(null);
   const [code, setCode] = useState("");
   const [result, setResult] = useState<ResultState>({ type: "idle" });
   const [loading, setLoading] = useState(false);
 
   const handleCheck = async () => {
-    if (!code.trim()) return;
+    if (!code.trim() || !campus) return;
     setLoading(true);
     setResult({ type: "idle" });
 
@@ -50,6 +54,7 @@ export default function Home() {
         body: JSON.stringify({
           code: code.trim(),
           deviceInfo: getDeviceInfo(),
+          campus: campus,
         }),
       });
       const data = await res.json();
@@ -58,6 +63,8 @@ export default function Home() {
         setResult({ type: "valid", code });
       } else if (data.status === "used") {
         setResult({ type: "used", code });
+      } else if (data.status === "closed") {
+        setResult({ type: "closed", code });
       } else if (data.status === "invalid") {
         setResult({ type: "invalid", code });
       } else {
@@ -73,22 +80,51 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
-      <CoffeeBean className="absolute top-8 left-10 w-8 h-8 text-[#1E3A8A]/10 floating-icon-slow sm:left-[calc(50%-380px)] sm:top-24" />
-<CoffeeBean className="absolute top-6 right-16 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium sm:right-[calc(50%-380px)] sm:top-16" />
-<CoffeeBean className="absolute bottom-56 right-6 w-9 h-9 text-[#1E3A8A]/10 floating-icon-slow sm:right-[calc(50%-400px)] sm:top-1/2" />
-<CoffeeBean className="absolute bottom-14 left-16 w-7 h-7 text-[#1E3A8A]/10 floating-icon-slow sm:left-[calc(50%-400px)] sm:bottom-32" />
-<CoffeeBean className="absolute bottom-4 right-24 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium sm:right-[calc(50%-360px)] sm:bottom-16" />
-      <div className="w-full max-w-xl">
+      <div className="w-full max-w-xl relative">
+        <CoffeeBean className="hidden sm:block absolute -top-6 -left-20 w-8 h-8 text-[#1E3A8A]/10 floating-icon-slow" />
+        <CoffeeBean className="hidden sm:block absolute -top-10 -right-24 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium" />
+        <CoffeeBean className="hidden sm:block absolute top-1/2 -right-28 w-9 h-9 text-[#1E3A8A]/10 floating-icon-slow" />
+        <CoffeeBean className="hidden sm:block absolute bottom-10 -left-24 w-7 h-7 text-[#1E3A8A]/10 floating-icon-slow" />
+        <CoffeeBean className="hidden sm:block absolute -bottom-8 -right-20 w-6 h-6 text-[#1E3A8A]/10 floating-icon-medium" />
+
         <div className="flex flex-col items-center text-center gap-4 mb-6">
-  <Image src="/mebookie.png" alt="프로모션 캐릭터" width={400} height={400} className="shrink-0 object-contain w-40 sm:w-[200px]" style={{ height: "auto" }} />
-  <div className="min-w-0">
-    <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A]" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 프로모션</h1>
-    <p className="text-base sm:text-lg font-semibold text-gray-700 mt-1">아메리카노 무료 증정 쿠폰번호 조회 페이지</p>
-    <p className="text-sm text-gray-500 mt-3 leading-relaxed">한국외대 프로모션 대상자의 쿠폰을 확인하고<br />무료 증정 여부를 확인해 주세요.</p>
-  </div>
-</div>
+          <Image src="/mebookie.png" alt="프로모션 캐릭터" width={800} height={800} className="shrink-0 object-contain w-40 sm:w-[160px]" style={{ height: "auto" }} />
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#1E3A8A]" style={{ fontFamily: "var(--font-title)" }}>메가스터디교육 미북 × 한국외대 프로모션</h1>
+            <p className="text-base sm:text-lg font-semibold text-gray-700 mt-1">아메리카노 무료 증정 쿠폰번호 조회 페이지</p>
+            <p className="text-sm text-gray-500 mt-3 leading-relaxed">한국외대 프로모션 대상자의 쿠폰을 확인하고<br />무료 증정 여부를 확인해 주세요.</p>
+          </div>
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <label className="block text-sm font-medium text-gray-600 mb-2">캠퍼스 선택</label>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setCampus("서울캠퍼스")}
+              className={clsx(
+                "py-3 rounded-xl font-semibold border-2 transition",
+                campus === "서울캠퍼스"
+                  ? "bg-[#1E3A8A] border-[#1E3A8A] text-white"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-[#1E3A8A]/40"
+              )}
+            >
+              서울캠퍼스
+            </button>
+            <button
+              type="button"
+              onClick={() => setCampus("글로벌캠퍼스")}
+              className={clsx(
+                "py-3 rounded-xl font-semibold border-2 transition",
+                campus === "글로벌캠퍼스"
+                  ? "bg-[#1E3A8A] border-[#1E3A8A] text-white"
+                  : "bg-white border-gray-200 text-gray-600 hover:border-[#1E3A8A]/40"
+              )}
+            >
+              글로벌캠퍼스
+            </button>
+          </div>
+
           <label className="block text-sm font-medium text-gray-600 mb-2">쿠폰번호</label>
           <input
             type="text"
@@ -100,14 +136,17 @@ export default function Home() {
           />
           <button
             onClick={handleCheck}
-            disabled={loading || !code.trim()}
+            disabled={loading || !code.trim() || !campus}
             className={clsx(
               "w-full rounded-xl py-3 font-semibold text-white transition",
-              loading || !code.trim() ? "bg-gray-300 cursor-not-allowed" : "bg-[#1E3A8A] hover:bg-[#1e3a8a]/90"
+              loading || !code.trim() || !campus ? "bg-gray-300 cursor-not-allowed" : "bg-[#1E3A8A] hover:bg-[#1e3a8a]/90"
             )}
           >
             {loading ? "확인 중..." : "확인하기"}
           </button>
+          {!campus && (
+            <p className="text-xs text-gray-400 mt-2">캠퍼스를 먼저 선택해주세요.</p>
+          )}
         </div>
 
         {result.type !== "idle" && (
@@ -116,16 +155,17 @@ export default function Home() {
               "rounded-2xl p-4 mb-4 flex items-center gap-3 border",
               result.type === "valid" && "bg-green-50 border-green-200 text-green-700",
               result.type === "used" && "bg-amber-50 border-amber-200 text-amber-700",
-              (result.type === "invalid" || result.type === "error") && "bg-red-50 border-red-200 text-red-700"
+              (result.type === "invalid" || result.type === "error" || result.type === "closed") && "bg-red-50 border-red-200 text-red-700"
             )}
           >
             {result.type === "valid" && <CheckCircle2 className="w-5 h-5 shrink-0" />}
             {result.type === "used" && <AlertTriangle className="w-5 h-5 shrink-0" />}
-            {(result.type === "invalid" || result.type === "error") && <XCircle className="w-5 h-5 shrink-0" />}
+            {(result.type === "invalid" || result.type === "error" || result.type === "closed") && <XCircle className="w-5 h-5 shrink-0" />}
             <span className="font-medium">
               {result.type === "valid" && "사용 가능한 코드입니다."}
               {result.type === "used" && "이미 사용된 코드입니다."}
               {result.type === "invalid" && "존재하지 않는 코드입니다."}
+              {result.type === "closed" && "이벤트가 종료되어 입력이 불가합니다."}
               {result.type === "error" && "확인 중 오류가 발생했습니다. 다시 시도해주세요."}
             </span>
           </div>
