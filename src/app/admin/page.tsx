@@ -22,12 +22,13 @@ export default function AdminPage() {
   const [issuedCount, setIssuedCount] = useState<number | null>(null);
   const [seoulCount, setSeoulCount] = useState<number | null>(null);
   const [globalCount, setGlobalCount] = useState<number | null>(null);
+  const [seoulTodayCount, setSeoulTodayCount] = useState<number | null>(null);
+  const [globalTodayCount, setGlobalTodayCount] = useState<number | null>(null);
   const [seoulRevenue, setSeoulRevenue] = useState<number | null>(null);
   const [globalRevenue, setGlobalRevenue] = useState<number | null>(null);
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -40,52 +41,34 @@ export default function AdminPage() {
     setIssuedCount(data.issuedCount ?? 0);
     setSeoulCount(data.seoulCount ?? 0);
     setGlobalCount(data.globalCount ?? 0);
+    setSeoulTodayCount(data.seoulTodayCount ?? 0);
+    setGlobalTodayCount(data.globalTodayCount ?? 0);
     setSeoulRevenue(data.seoulRevenue ?? 0);
     setGlobalRevenue(data.globalRevenue ?? 0);
     setTotalRevenue(data.totalRevenue ?? 0);
   };
 
-  // 최초 로딩: 전체 데이터를 가져옴
-  const fetchInitial = async (attempt = 1) => {
-    if (attempt === 1) {
-      setLoading(true);
-      setProgress(0);
-    }
-
-    const progressTimer = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
-    }, 400);
-
+  const fetchInitial = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${GAS_URL}?type=logs`);
-      if (!res.ok) throw new Error("응답 실패");
       const data = await res.json();
       setLogs(data.logs ?? []);
       applyStats(data);
       lastFetchRef.current = new Date().toISOString();
-      setProgress(100);
-      clearInterval(progressTimer);
-      setTimeout(() => setLoading(false), 300);
     } catch {
-      clearInterval(progressTimer);
-      if (attempt < 3) {
-        setTimeout(() => fetchInitial(attempt + 1), 800);
-      } else {
-        setLogs([]);
-        setProgress(100);
-        setLoading(false);
-      }
+      setLogs([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 증분 새로고침: 마지막 조회 이후 새로 생긴 기록만 가져와서 이어붙임
   const fetchIncremental = async () => {
     if (!lastFetchRef.current) return;
     setRefreshing(true);
     try {
       const since = encodeURIComponent(lastFetchRef.current);
       const res = await fetch(`${GAS_URL}?type=logs&since=${since}`);
-      if (!res.ok) throw new Error("응답 실패");
       const data = await res.json();
 
       applyStats(data);
@@ -101,7 +84,7 @@ export default function AdminPage() {
 
       lastFetchRef.current = new Date().toISOString();
     } catch {
-      // 새로고침 실패 시 조용히 무시 (기존 데이터는 유지)
+      // 새로고침 실패 시 조용히 무시
     } finally {
       setRefreshing(false);
     }
@@ -140,6 +123,7 @@ export default function AdminPage() {
   };
 
   const currentUsedCount = tab === "all" ? totalCount : tab === "seoul" ? seoulCount : globalCount;
+  const currentTodayCount = tab === "all" ? todayCount : tab === "seoul" ? seoulTodayCount : globalTodayCount;
   const currentRevenue = tab === "all" ? totalRevenue : tab === "seoul" ? seoulRevenue : globalRevenue;
 
   const redemptionRate =
@@ -209,8 +193,8 @@ export default function AdminPage() {
             <p className="text-xs text-gray-500 mt-1">{tabLabel} 수령률</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p className="text-2xl font-bold text-[#1E3A8A]">{todayCount ?? "-"}</p>
-            <p className="text-xs text-gray-500 mt-1">오늘 사용 (전체)</p>
+            <p className="text-2xl font-bold text-[#1E3A8A]">{currentTodayCount ?? "-"}</p>
+            <p className="text-xs text-gray-500 mt-1">{tabLabel} 오늘 사용</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <p className="text-2xl font-bold text-[#1E3A8A]">{currentUsedCount ?? "-"}</p>
@@ -259,17 +243,7 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <div className="py-6 px-2">
-              <p className="text-sm text-gray-400 text-center mb-3">
-                데이터를 불러오는 중... {Math.round(progress)}%
-              </p>
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
+            <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
           ) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
