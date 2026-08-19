@@ -26,31 +26,40 @@ export default function AdminPage() {
   const [globalRevenue, setGlobalRevenue] = useState<number | null>(null);
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
   const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${GAS_URL}?type=logs`);
-      const data = await res.json();
-      setLogs(data.logs ?? []);
-      setTodayCount(data.todayCount ?? 0);
-      setTotalCount(data.totalCount ?? 0);
-      setIssuedCount(data.issuedCount ?? 0);
-      setSeoulCount(data.seoulCount ?? 0);
-      setGlobalCount(data.globalCount ?? 0);
-      setSeoulRevenue(data.seoulRevenue ?? 0);
-      setGlobalRevenue(data.globalRevenue ?? 0);
-      setTotalRevenue(data.totalRevenue ?? 0);
-    } catch {
-      setLogs([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setProgress(0);
 
+  const progressTimer = setInterval(() => {
+    setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
+  }, 400);
+
+  try {
+    const res = await fetch(`${GAS_URL}?type=logs`);
+    const data = await res.json();
+    setLogs(data.logs ?? []);
+    setTodayCount(data.todayCount ?? 0);
+    setTotalCount(data.totalCount ?? 0);
+    setIssuedCount(data.issuedCount ?? 0);
+    setSeoulCount(data.seoulCount ?? 0);
+    setGlobalCount(data.globalCount ?? 0);
+    setSeoulRevenue(data.seoulRevenue ?? 0);
+    setGlobalRevenue(data.globalRevenue ?? 0);
+    setTotalRevenue(data.totalRevenue ?? 0);
+    setProgress(100);
+  } catch {
+    setLogs([]);
+    setProgress(100);
+  } finally {
+    clearInterval(progressTimer);
+    setTimeout(() => setLoading(false), 300);
+  }
+};
   useEffect(() => {
     fetchLogs();
   }, []);
@@ -193,8 +202,18 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
-          ) : filteredLogs.length === 0 ? (
+  <div className="py-6 px-2">
+    <p className="text-sm text-gray-400 text-center mb-3">
+      데이터를 불러오는 중... {Math.round(progress)}%
+    </p>
+    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+      <div
+        className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  </div>
+) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
             <div className="divide-y divide-gray-100">
