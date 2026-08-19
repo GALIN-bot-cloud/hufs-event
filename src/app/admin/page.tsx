@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Download, ArrowLeft, ListChecks, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -13,8 +13,18 @@ type LogItem = {
 
 type Tab = "all" | "seoul" | "global";
 
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
-const STORAGE_KEY = "admin_stats_cache_v1";
+const SUMMARY_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/1nFffpgZhmWCwdAwr50KK9coX-2Inv8R-yJnKMc1lOB4/export?format=csv&gid=163369087";
+const LOGS_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/1nFffpgZhmWCwdAwr50KK9coX-2Inv8R-yJnKMc1lOB4/export?format=csv&gid=161691357";
+
+// 간단한 CSV 파서 (콤마로만 구분되는 단순 형태 기준)
+function parseCsv(text: string): string[][] {
+  return text
+    .trim()
+    .split("\n")
+    .map((line) => line.split(",").map((cell) => cell.trim()));
+}
 
 export default function AdminPage() {
   const [logs, setLogs] = useState<LogItem[]>([]);
@@ -30,121 +40,64 @@ export default function AdminPage() {
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  const lastFetchRef = useRef<string | null>(null);
-
-  const applyStats = (data: any) => {
-    setTodayCount(data.todayCount ?? 0);
-    setTotalCount(data.totalCount ?? 0);
-    setIssuedCount(data.issuedCount ?? 0);
-    setSeoulCount(data.seoulCount ?? 0);
-    setGlobalCount(data.globalCount ?? 0);
-    setSeoulTodayCount(data.seoulTodayCount ?? 0);
-    setGlobalTodayCount(data.globalTodayCount ?? 0);
-    setSeoulRevenue(data.seoulRevenue ?? 0);
-    setGlobalRevenue(data.globalRevenue ?? 0);
-    setTotalRevenue(data.totalRevenue ?? 0);
-  };
-
-  // 세션 저장소에 마지막 성공 데이터를 저장 (다음 방문 시 즉시 화면에 보여주기 위함)
-  const saveToSession = (data: any, logsData: LogItem[]) => {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, logs: logsData }));
-    } catch {
-      // 저장 실패해도 무시 (기능에 영향 없음)
-    }
-  };
-
-  const loadFromSession = () => {
-    try {
-      const cached = sessionStorage.getItem(STORAGE_KEY);
-      if (!cached) return false;
-      const data = JSON.parse(cached);
-      setLogs(data.logs ?? []);
-      applyStats(data);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const fetchInitial = async (attempt = 1) => {
-    if (attempt === 1) {
-      setProgress(0);
-    }
-
-    const progressTimer = setInterval(() => {
-      setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
-    }, 400);
+  const fetchStats = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    else setRefreshing(true);
 
     try {
-      const res = await fetch(`${GAS_URL}?type=logs`);
-      if (!res.ok) throw new Error("응답 실패");
-      const data = await res.json();
-      const newLogs: LogItem[] = data.logs ?? [];
+      const cacheBuster = `&t=${Date.now()}`;
 
-      setLogs(newLogs);
-      applyStats(data);
-      saveToSession(data, newLogs);
-      lastFetchRef.current = new Date().toISOString();
-      setProgress(100);
-      clearInterval(progressTimer);
-      setTimeout(() => setLoading(false), 300);
+      const [summaryRes, logsRes] = await Promise.all([
+        fetch(SUMMARY_CSV_URL + cacheBuster),
+        fetch(LOGS_CSV_URL + cacheBuster),
+      ]);
+
+      const summaryText = await summaryRes.text();
+      const logsText = await logsRes.text();
+
+      const summaryRows = parseCsv(summaryText);
+      const summaryHeader = summaryRows[0];
+      const summaryValues = summaryRows[1];
+
+      const summary: Record<string, number> = {};
+      summaryHeader.forEach((key, idx) => {
+        summary[key] = Number(summaryValues[idx]) || 0;
+      });
+
+      setIssuedCount(summary.issuedCount ?? 0);
+      setTodayCount(summary.todayCount ?? 0);
+      setTotalCount(summary.totalCount ?? 0);
+      setSeoulCount(summary.seoulCount ?? 0);
+      setGlobalCount(summary.globalCount ?? 0);
+      setSeoulTodayCount(summary.seoulTodayCount ?? 0);
+      setGlobalTodayCount(summary.globalTodayCount ?? 0);
+      setSeoulRevenue(summary.seoulRevenue ?? 0);
+      setGlobalRevenue(summary.globalRevenue ?? 0);
+      setTotalRevenue(summary.totalRevenue ?? 0);
+
+      const logsRows = parseCsv(logsText);
+      const logsData: LogItem[] = logsRows.slice(1).map((row) => ({
+        code: row[0] ?? "",
+        time: row[1] ?? "",
+        device: row[2] ?? "",
+        campus: row[3] ?? "",
+      })).filter((l) => l.code);
+
+      setLogs(logsData);
     } catch {
-      clearInterval(progressTimer);
-      if (attempt < 4) {
-        setTimeout(() => fetchInitial(attempt + 1), 700);
-      } else {
-        // 재시도 다 실패해도, 세션에 저장된 이전 값이 있으면 그대로 유지 (화면이 "-"로 깨지지 않음)
-        setProgress(100);
-        setLoading(false);
-      }
-    }
-  };
-
-  const fetchIncremental = async () => {
-    if (!lastFetchRef.current) return;
-    setRefreshing(true);
-    try {
-      const since = encodeURIComponent(lastFetchRef.current);
-      const res = await fetch(`${GAS_URL}?type=logs&since=${since}`);
-      if (!res.ok) throw new Error("응답 실패");
-      const data = await res.json();
-
-      applyStats(data);
-
-      const newLogs: LogItem[] = data.logs ?? [];
-      let mergedLogs: LogItem[] = logs;
-      if (newLogs.length > 0) {
-        const existingCodes = new Set(logs.map((l) => l.code));
-        const uniqueNew = newLogs.filter((l) => !existingCodes.has(l.code));
-        mergedLogs = [...uniqueNew, ...logs];
-        setLogs(mergedLogs);
-      }
-
-      saveToSession(data, mergedLogs);
-      lastFetchRef.current = new Date().toISOString();
-    } catch {
-      // 새로고침 실패 시 조용히 무시 (기존 데이터는 그대로 유지)
+      // 실패해도 기존 값 유지 (화면이 깨지지 않음)
     } finally {
+      setLoading(false);
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    // 1) 세션에 저장된 값이 있으면 즉시 화면에 표시 (로딩 화면 없이 바로 보임)
-    const hasCache = loadFromSession();
-    if (hasCache) {
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
-    // 2) 그 사이/이후에도 최신 데이터로 조용히 갱신
-    fetchInitial();
+    fetchStats(true);
   }, []);
 
   const filteredLogs = logs.filter((log) => {
@@ -196,7 +149,7 @@ export default function AdminPage() {
           </a>
           <div className="flex items-center gap-2">
             <button
-              onClick={fetchIncremental}
+              onClick={() => fetchStats(false)}
               disabled={loading || refreshing}
               className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#1E3A8A] px-3 py-2 disabled:opacity-40"
             >
@@ -296,17 +249,7 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <div className="py-6 px-2">
-              <p className="text-sm text-gray-400 text-center mb-3">
-                데이터를 불러오는 중... {Math.round(progress)}%
-              </p>
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
+            <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
           ) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
