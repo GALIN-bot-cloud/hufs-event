@@ -31,9 +31,11 @@ export default function AdminPage() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  const fetchLogs = async () => {
-  setLoading(true);
-  setProgress(0);
+  const fetchLogs = async (attempt = 1) => {
+  if (attempt === 1) {
+    setLoading(true);
+    setProgress(0);
+  }
 
   const progressTimer = setInterval(() => {
     setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
@@ -41,6 +43,7 @@ export default function AdminPage() {
 
   try {
     const res = await fetch(`${GAS_URL}?type=logs`);
+    if (!res.ok) throw new Error("응답 실패");
     const data = await res.json();
     setLogs(data.logs ?? []);
     setTodayCount(data.todayCount ?? 0);
@@ -52,12 +55,17 @@ export default function AdminPage() {
     setGlobalRevenue(data.globalRevenue ?? 0);
     setTotalRevenue(data.totalRevenue ?? 0);
     setProgress(100);
-  } catch {
-    setLogs([]);
-    setProgress(100);
-  } finally {
     clearInterval(progressTimer);
     setTimeout(() => setLoading(false), 300);
+  } catch {
+    clearInterval(progressTimer);
+    if (attempt < 3) {
+      setTimeout(() => fetchLogs(attempt + 1), 800);
+    } else {
+      setLogs([]);
+      setProgress(100);
+      setLoading(false);
+    }
   }
 };
   useEffect(() => {
