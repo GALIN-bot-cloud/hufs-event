@@ -18,7 +18,6 @@ const SUMMARY_CSV_URL =
 const LOGS_CSV_URL =
   "https://docs.google.com/spreadsheets/d/1nFffpgZhmWCwdAwr50KK9coX-2Inv8R-yJnKMc1lOB4/export?format=csv&gid=161691357";
 
-// 간단한 CSV 파서 (콤마로만 구분되는 단순 형태 기준)
 function parseCsv(text: string): string[][] {
   return text
     .trim()
@@ -40,13 +39,23 @@ export default function AdminPage() {
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
   const fetchStats = async (isInitial = false) => {
-    if (isInitial) setLoading(true);
-    else setRefreshing(true);
+    let progressTimer: ReturnType<typeof setInterval> | null = null;
+
+    if (isInitial) {
+      setLoading(true);
+      setProgress(0);
+      progressTimer = setInterval(() => {
+        setProgress((prev) => (prev < 90 ? prev + Math.random() * 15 : prev));
+      }, 150);
+    } else {
+      setRefreshing(true);
+    }
 
     try {
       const cacheBuster = `&t=${Date.now()}`;
@@ -80,18 +89,25 @@ export default function AdminPage() {
       setTotalRevenue(summary.totalRevenue ?? 0);
 
       const logsRows = parseCsv(logsText);
-      const logsData: LogItem[] = logsRows.slice(1).map((row) => ({
-        code: row[0] ?? "",
-        time: row[1] ?? "",
-        device: row[2] ?? "",
-        campus: row[3] ?? "",
-      })).filter((l) => l.code);
+      const logsData: LogItem[] = logsRows
+        .slice(1)
+        .map((row) => ({
+          code: row[0] ?? "",
+          time: row[1] ?? "",
+          device: row[2] ?? "",
+          campus: row[3] ?? "",
+        }))
+        .filter((l) => l.code);
 
       setLogs(logsData);
     } catch {
       // 실패해도 기존 값 유지 (화면이 깨지지 않음)
     } finally {
-      setLoading(false);
+      if (progressTimer) clearInterval(progressTimer);
+      if (isInitial) {
+        setProgress(100);
+        setTimeout(() => setLoading(false), 200);
+      }
       setRefreshing(false);
     }
   };
@@ -249,7 +265,17 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
+            <div className="py-6 px-2">
+              <p className="text-sm text-gray-400 text-center mb-3">
+                데이터를 불러오는 중... {Math.round(progress)}%
+              </p>
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
           ) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
