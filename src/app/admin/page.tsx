@@ -14,6 +14,7 @@ type LogItem = {
 type Tab = "all" | "seoul" | "global";
 
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_WEB_APP_URL as string;
+const STORAGE_KEY = "admin_stats_cache_v1";
 
 export default function AdminPage() {
   const [logs, setLogs] = useState<LogItem[]>([]);
@@ -49,9 +50,32 @@ export default function AdminPage() {
     setTotalRevenue(data.totalRevenue ?? 0);
   };
 
-  const fetchInitial = async () => {
-    setLoading(true);
-    setProgress(0);
+  // 세션 저장소에 마지막 성공 데이터를 저장 (다음 방문 시 즉시 화면에 보여주기 위함)
+  const saveToSession = (data: any, logsData: LogItem[]) => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, logs: logsData }));
+    } catch {
+      // 저장 실패해도 무시 (기능에 영향 없음)
+    }
+  };
+
+  const loadFromSession = () => {
+    try {
+      const cached = sessionStorage.getItem(STORAGE_KEY);
+      if (!cached) return false;
+      const data = JSON.parse(cached);
+      setLogs(data.logs ?? []);
+      applyStats(data);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const fetchInitial = async (attempt = 1) => {
+    if (attempt === 1) {
+      setProgress(0);
+    }
 
     const progressTimer = setInterval(() => {
       setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
@@ -59,17 +83,26 @@ export default function AdminPage() {
 
     try {
       const res = await fetch(`${GAS_URL}?type=logs`);
+      if (!res.ok) throw new Error("응답 실패");
       const data = await res.json();
-      setLogs(data.logs ?? []);
+      const newLogs: LogItem[] = data.logs ?? [];
+
+      setLogs(newLogs);
       applyStats(data);
+      saveToSession(data, newLogs);
       lastFetchRef.current = new Date().toISOString();
       setProgress(100);
-    } catch {
-      setLogs([]);
-      setProgress(100);
-    } finally {
       clearInterval(progressTimer);
       setTimeout(() => setLoading(false), 300);
+    } catch {
+      clearInterval(progressTimer);
+      if (attempt < 4) {
+        setTimeout(() => fetchInitial(attempt + 1), 700);
+      } else {
+        // 재시도 다 실패해도, 세션에 저장된 이전 값이 있으면 그대로 유지 (화면이 "-"로 깨지지 않음)
+        setProgress(100);
+        setLoading(false);
+      }
     }
   };
 
@@ -79,28 +112,38 @@ export default function AdminPage() {
     try {
       const since = encodeURIComponent(lastFetchRef.current);
       const res = await fetch(`${GAS_URL}?type=logs&since=${since}`);
+      if (!res.ok) throw new Error("응답 실패");
       const data = await res.json();
 
       applyStats(data);
 
       const newLogs: LogItem[] = data.logs ?? [];
+      let mergedLogs: LogItem[] = logs;
       if (newLogs.length > 0) {
-        setLogs((prev) => {
-          const existingCodes = new Set(prev.map((l) => l.code));
-          const uniqueNew = newLogs.filter((l) => !existingCodes.has(l.code));
-          return [...uniqueNew, ...prev];
-        });
+        const existingCodes = new Set(logs.map((l) => l.code));
+        const uniqueNew = newLogs.filter((l) => !existingCodes.has(l.code));
+        mergedLogs = [...uniqueNew, ...logs];
+        setLogs(mergedLogs);
       }
 
+      saveToSession(data, mergedLogs);
       lastFetchRef.current = new Date().toISOString();
     } catch {
-      // 새로고침 실패 시 조용히 무시
+      // 새로고침 실패 시 조용히 무시 (기존 데이터는 그대로 유지)
     } finally {
       setRefreshing(false);
     }
   };
 
   useEffect(() => {
+    // 1) 세션에 저장된 값이 있으면 즉시 화면에 표시 (로딩 화면 없이 바로 보임)
+    const hasCache = loadFromSession();
+    if (hasCache) {
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    // 2) 그 사이/이후에도 최신 데이터로 조용히 갱신
     fetchInitial();
   }, []);
 
