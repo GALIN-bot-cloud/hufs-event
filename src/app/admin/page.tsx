@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [totalRevenue, setTotalRevenue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [tab, setTab] = useState<Tab>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -50,16 +51,25 @@ export default function AdminPage() {
 
   const fetchInitial = async () => {
     setLoading(true);
+    setProgress(0);
+
+    const progressTimer = setInterval(() => {
+      setProgress((prev) => (prev < 90 ? prev + Math.random() * 8 : prev));
+    }, 400);
+
     try {
       const res = await fetch(`${GAS_URL}?type=logs`);
       const data = await res.json();
       setLogs(data.logs ?? []);
       applyStats(data);
       lastFetchRef.current = new Date().toISOString();
+      setProgress(100);
     } catch {
       setLogs([]);
+      setProgress(100);
     } finally {
-      setLoading(false);
+      clearInterval(progressTimer);
+      setTimeout(() => setLoading(false), 300);
     }
   };
 
@@ -243,7 +253,17 @@ export default function AdminPage() {
           </div>
 
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-6">불러오는 중...</p>
+            <div className="py-6 px-2">
+              <p className="text-sm text-gray-400 text-center mb-3">
+                데이터를 불러오는 중... {Math.round(progress)}%
+              </p>
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-[#1E3A8A] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
           ) : filteredLogs.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-6">해당 조건의 사용 기록이 없습니다.</p>
           ) : (
